@@ -45,14 +45,29 @@ export default function Home() {
   const currentConditions = forecast?.hourly[0];
 
   return (
-    <main className="min-h-screen bg-black text-white">
+    <main style={{ minHeight: '100vh', backgroundColor: '#000' }}>
       {/* Header */}
-      <header className="border-b border-blue-900/30 py-8 px-4">
-        <div className="max-w-5xl mx-auto">
-          <h1 className="text-5xl font-bold gradient-text mb-2">PronoHH 🌊</h1>
-          <p className="text-gray-400 text-lg">Wind forecast for Rio de la Plata sailors</p>
+      <header style={{
+        borderBottom: '1px solid rgba(0, 217, 255, 0.2)',
+        padding: '2rem 1rem'
+      }}>
+        <div style={{ maxWidth: '80rem', margin: '0 auto' }}>
+          <h1 style={{
+            fontSize: '3rem',
+            fontWeight: 'bold',
+            marginBottom: '0.5rem',
+            background: 'linear-gradient(135deg, #00d9ff, #0099ff)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text'
+          }}>
+            PronoHH 🌊
+          </h1>
+          <p style={{ color: '#999', fontSize: '1.1rem' }}>
+            Wind forecast for Rio de la Plata sailors
+          </p>
           {lastUpdate && (
-            <p className="text-gray-600 text-sm mt-2">
+            <p style={{ color: '#666', fontSize: '0.875rem', marginTop: '0.5rem' }}>
               Last update: {lastUpdate.toLocaleTimeString('es-AR')}
             </p>
           )}
@@ -60,22 +75,48 @@ export default function Home() {
       </header>
 
       {error && (
-        <div className="bg-red-900/20 border border-red-900/50 text-red-300 p-4 mx-4 my-4 rounded">
+        <div style={{
+          backgroundColor: 'rgba(127, 29, 29, 0.2)',
+          border: '1px solid rgba(127, 29, 29, 0.5)',
+          color: '#fca5a5',
+          padding: '1rem',
+          margin: '1rem',
+          borderRadius: '0.5rem'
+        }}>
           Error: {error}
         </div>
       )}
 
       {loading ? (
-        <div className="max-w-5xl mx-auto py-12 px-4 text-center">
-          <p className="text-gray-400">Loading forecast...</p>
+        <div style={{
+          maxWidth: '80rem',
+          margin: '0 auto',
+          paddingY: '3rem',
+          textAlign: 'center'
+        }}>
+          <p style={{ color: '#666' }}>Loading forecast...</p>
         </div>
       ) : (
-        <div className="max-w-5xl mx-auto px-4 py-8">
+        <div style={{ maxWidth: '80rem', margin: '0 auto', padding: '2rem 1rem' }}>
           {/* Wind Threshold Slider */}
-          <section className="bg-blue-900/10 border border-blue-900/30 rounded-lg p-6 mb-8">
-            <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-300 mb-4">
-                Minimum Wind Speed: <span className="text-cyan-400 text-lg">{minWind} knots</span>
+          <section style={{
+            backgroundColor: 'rgba(0, 100, 200, 0.1)',
+            border: '1px solid rgba(0, 217, 255, 0.2)',
+            borderRadius: '0.5rem',
+            padding: '1.5rem',
+            marginBottom: '2rem'
+          }}>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{
+                display: 'block',
+                fontSize: '0.875rem',
+                fontWeight: '600',
+                color: '#ccc',
+                marginBottom: '1rem'
+              }}>
+                Minimum Wind Speed: <span style={{ color: '#00d9ff', fontSize: '1.1rem' }}>
+                  {minWind} knots
+                </span>
               </label>
               <input
                 type="range"
@@ -84,85 +125,165 @@ export default function Home() {
                 step="1"
                 value={minWind}
                 onChange={(e) => setMinWind(Number(e.target.value))}
-                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                style={{
+                  width: '100%',
+                  height: '0.5rem',
+                  backgroundColor: '#444',
+                  borderRadius: '0.25rem',
+                  cursor: 'pointer',
+                  accentColor: '#00d9ff'
+                }}
               />
-              <div className="flex justify-between text-xs text-gray-500 mt-2">
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontSize: '0.75rem',
+                color: '#666',
+                marginTop: '0.5rem'
+              }}>
                 <span>5 knots</span>
                 <span>40 knots</span>
               </div>
             </div>
-            <p className="text-sm text-gray-400">
+            <p style={{ fontSize: '0.875rem', color: '#999' }}>
               Looking for SE winds (112.5°–157.5°) with &lt;20% rain chance
             </p>
           </section>
 
           {/* Current Conditions */}
           {currentConditions && (
-            <section className="bg-blue-900/10 border border-blue-900/30 rounded-lg p-6 mb-8">
-              <h2 className="text-2xl font-bold mb-4">Right Now</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <section style={{
+              backgroundColor: 'rgba(0, 100, 200, 0.1)',
+              border: '1px solid rgba(0, 217, 255, 0.2)',
+              borderRadius: '0.5rem',
+              padding: '1.5rem',
+              marginBottom: '2rem'
+            }}>
+              <h2 style={{
+                fontSize: '1.5rem',
+                fontWeight: 'bold',
+                marginBottom: '1rem'
+              }}>
+                Right Now
+              </h2>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '1rem'
+              }}>
                 <div>
-                  <p className="text-gray-400 text-sm">Wind Speed</p>
-                  <p className="text-2xl font-bold text-cyan-400">{currentConditions.wind_speed} kts</p>
+                  <p style={{ color: '#999', fontSize: '0.875rem' }}>Wind Speed</p>
+                  <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#00d9ff' }}>
+                    {currentConditions.wind_speed} kts
+                  </p>
                 </div>
                 <div>
-                  <p className="text-gray-400 text-sm">Direction</p>
-                  <p className="text-2xl font-bold text-cyan-400">{currentConditions.wind_deg}°</p>
+                  <p style={{ color: '#999', fontSize: '0.875rem' }}>Direction</p>
+                  <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#00d9ff' }}>
+                    {currentConditions.wind_deg}°
+                  </p>
                 </div>
                 <div>
-                  <p className="text-gray-400 text-sm">Temperature</p>
-                  <p className="text-2xl font-bold text-cyan-400">{currentConditions.temp}°C</p>
+                  <p style={{ color: '#999', fontSize: '0.875rem' }}>Temperature</p>
+                  <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#00d9ff' }}>
+                    {currentConditions.temp}°C
+                  </p>
                 </div>
                 <div>
-                  <p className="text-gray-400 text-sm">Conditions</p>
-                  <p className="text-2xl font-bold text-cyan-400">{currentConditions.description}</p>
+                  <p style={{ color: '#999', fontSize: '0.875rem' }}>Conditions</p>
+                  <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#00d9ff' }}>
+                    {currentConditions.description}
+                  </p>
                 </div>
               </div>
             </section>
           )}
 
           {/* Good Windows */}
-          <section className="mb-8">
-            <h2 className="text-3xl font-bold mb-6 border-b border-blue-900/30 pb-4">
+          <section style={{ marginBottom: '2rem' }}>
+            <h2 style={{
+              fontSize: '2rem',
+              fontWeight: 'bold',
+              marginBottom: '1.5rem',
+              borderBottom: '1px solid rgba(0, 217, 255, 0.2)',
+              paddingBottom: '1rem'
+            }}>
               Next Good Windows
             </h2>
             {goodWindows.length === 0 ? (
-              <div className="bg-yellow-900/10 border border-yellow-900/30 rounded-lg p-6 text-center">
-                <p className="text-yellow-300 text-lg font-semibold">
+              <div style={{
+                backgroundColor: 'rgba(180, 83, 9, 0.1)',
+                border: '1px solid rgba(180, 83, 9, 0.3)',
+                borderRadius: '0.5rem',
+                padding: '1.5rem',
+                textAlign: 'center'
+              }}>
+                <p style={{ color: '#fcd34d', fontSize: '1.1rem', fontWeight: '600' }}>
                   No good windows in the next 5 days at {minWind}+ knots SE wind
                 </p>
-                <p className="text-gray-400 text-sm mt-2">Try lowering the wind threshold</p>
+                <p style={{ color: '#999', fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                  Try lowering the wind threshold
+                </p>
               </div>
             ) : (
-              <div className="grid gap-4">
+              <div style={{ display: 'grid', gap: '1rem' }}>
                 {goodWindows.map((window, idx) => {
                   const label = getConditionLabel(parseFloat(window.avgWind), minWind);
-                  const labelColor =
-                    label === 'GO'
-                      ? 'text-green-400 bg-green-900/20'
-                      : label === 'MAYBE'
-                      ? 'text-yellow-400 bg-yellow-900/20'
-                      : 'text-red-400 bg-red-900/20';
+                  const labelColor = label === 'GO'
+                    ? { text: '#4ade80', bg: 'rgba(34, 197, 94, 0.2)' }
+                    : label === 'MAYBE'
+                    ? { text: '#facc15', bg: 'rgba(202, 138, 4, 0.2)' }
+                    : { text: '#f87171', bg: 'rgba(239, 68, 68, 0.2)' };
 
                   return (
                     <div
                       key={idx}
-                      className="bg-blue-900/10 border border-blue-900/30 rounded-lg p-4 hover:bg-blue-900/20 transition"
+                      style={{
+                        backgroundColor: 'rgba(0, 100, 200, 0.1)',
+                        border: '1px solid rgba(0, 217, 255, 0.2)',
+                        borderRadius: '0.5rem',
+                        padding: '1rem',
+                        transition: 'all 0.3s',
+                        cursor: 'pointer'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(0, 100, 200, 0.2)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(0, 100, 200, 0.1)';
+                      }}
                     >
-                      <div className="flex justify-between items-start mb-2">
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start',
+                        marginBottom: '0.5rem'
+                      }}>
                         <div>
-                          <p className="text-gray-400 text-sm">
+                          <p style={{ color: '#999', fontSize: '0.875rem' }}>
                             {formatTimeRange(window.startTime, window.endTime)}
                           </p>
-                          <p className="text-lg font-semibold text-white mt-1">
+                          <p style={{
+                            fontSize: '1.1rem',
+                            fontWeight: '600',
+                            color: '#fff',
+                            marginTop: '0.25rem'
+                          }}>
                             {window.duration}h window • Avg {window.avgWind} knots
                           </p>
                         </div>
-                        <span className={`px-3 py-1 rounded font-bold text-sm ${labelColor}`}>
+                        <span style={{
+                          padding: '0.25rem 0.75rem',
+                          borderRadius: '0.25rem',
+                          fontWeight: 'bold',
+                          fontSize: '0.875rem',
+                          color: labelColor.text,
+                          backgroundColor: labelColor.bg
+                        }}>
                           {label}
                         </span>
                       </div>
-                      <p className="text-gray-400 text-sm">
+                      <p style={{ color: '#999', fontSize: '0.875rem' }}>
                         Wind: {window.hours[0].wind_deg}° • Rain: &lt;20%
                       </p>
                     </div>
@@ -173,15 +294,38 @@ export default function Home() {
           </section>
 
           {/* Webcams */}
-          <section className="mb-8">
-            <h2 className="text-3xl font-bold mb-6 border-b border-blue-900/30 pb-4">Live Cameras</h2>
-            <div className="grid gap-6">
-              <div className="bg-blue-900/10 border border-blue-900/30 rounded-lg overflow-hidden">
-                <h3 className="text-xl font-semibold p-4 bg-blue-900/20">Puerto Tablas Webcam</h3>
-                <div className="aspect-video bg-black">
+          <section style={{ marginBottom: '2rem' }}>
+            <h2 style={{
+              fontSize: '2rem',
+              fontWeight: 'bold',
+              marginBottom: '1.5rem',
+              borderBottom: '1px solid rgba(0, 217, 255, 0.2)',
+              paddingBottom: '1rem'
+            }}>
+              Live Cameras
+            </h2>
+            <div style={{
+              display: 'grid',
+              gap: '1.5rem'
+            }}>
+              <div style={{
+                backgroundColor: 'rgba(0, 100, 200, 0.1)',
+                border: '1px solid rgba(0, 217, 255, 0.2)',
+                borderRadius: '0.5rem',
+                overflow: 'hidden'
+              }}>
+                <h3 style={{
+                  fontSize: '1.25rem',
+                  fontWeight: '600',
+                  padding: '1rem',
+                  backgroundColor: 'rgba(0, 100, 200, 0.2)'
+                }}>
+                  Puerto Tablas Webcam
+                </h3>
+                <div style={{ aspectRatio: '16/9', backgroundColor: '#000' }}>
                   <iframe
                     src="https://player.twitch.tv/?channel=nauticanewsok&parent=localhost&parent=pronohh.vercel.app"
-                    height="360"
+                    height="100%"
                     width="100%"
                     allowFullScreen
                   ></iframe>
@@ -191,26 +335,66 @@ export default function Home() {
           </section>
 
           {/* Links */}
-          <section className="mb-12">
-            <h2 className="text-3xl font-bold mb-6 border-b border-blue-900/30 pb-4">Resources</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <section style={{ marginBottom: '3rem' }}>
+            <h2 style={{
+              fontSize: '2rem',
+              fontWeight: 'bold',
+              marginBottom: '1.5rem',
+              borderBottom: '1px solid rgba(0, 217, 255, 0.2)',
+              paddingBottom: '1rem'
+            }}>
+              Resources
+            </h2>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+              gap: '1rem'
+            }}>
               <a
                 href="https://www.comisionriodelaplata.org/servicios_main.php?sid=VM"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="bg-blue-900/10 border border-blue-900/30 rounded-lg p-4 hover:bg-blue-900/20 transition"
+                style={{
+                  backgroundColor: 'rgba(0, 100, 200, 0.1)',
+                  border: '1px solid rgba(0, 217, 255, 0.2)',
+                  borderRadius: '0.5rem',
+                  padding: '1rem',
+                  textDecoration: 'none',
+                  transition: 'all 0.3s',
+                  display: 'block'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(0, 100, 200, 0.2)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(0, 100, 200, 0.1)';
+                }}
               >
-                <p className="font-semibold text-cyan-400">Live Wind Station</p>
-                <p className="text-sm text-gray-400">Pilote Norden - Real-time conditions</p>
+                <p style={{ fontWeight: '600', color: '#00d9ff' }}>Live Wind Station</p>
+                <p style={{ fontSize: '0.875rem', color: '#999' }}>Pilote Norden - Real-time conditions</p>
               </a>
               <a
                 href="https://tablademareas.com/ar/buenos-aires/ciudad-de-buenos-aires"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="bg-blue-900/10 border border-blue-900/30 rounded-lg p-4 hover:bg-blue-900/20 transition"
+                style={{
+                  backgroundColor: 'rgba(0, 100, 200, 0.1)',
+                  border: '1px solid rgba(0, 217, 255, 0.2)',
+                  borderRadius: '0.5rem',
+                  padding: '1rem',
+                  textDecoration: 'none',
+                  transition: 'all 0.3s',
+                  display: 'block'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(0, 100, 200, 0.2)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(0, 100, 200, 0.1)';
+                }}
               >
-                <p className="font-semibold text-cyan-400">Tide Charts</p>
-                <p className="text-sm text-gray-400">Tabla de Mareas - Water height</p>
+                <p style={{ fontWeight: '600', color: '#00d9ff' }}>Tide Charts</p>
+                <p style={{ fontSize: '0.875rem', color: '#999' }}>Tabla de Mareas - Water height</p>
               </a>
             </div>
           </section>
