@@ -41,7 +41,7 @@ export async function GET(request) {
       feels_like: hour.main.feels_like,
       humidity: hour.main.humidity,
       wind_speed: Math.round(hour.wind.speed * 1.94384), // m/s to knots
-      wind_deg: Math.round(hour.wind.deg),
+      wind_deg: hour.wind.deg, // keep precision for directional filtering
       wind_gust: hour.wind.gust ? Math.round(hour.wind.gust * 1.94384) : null,
       clouds: hour.clouds.all,
       rain: hour.rain ? hour.rain['1h'] : 0,

@@ -167,7 +167,7 @@ export default function Home() {
               </div>
             </div>
             <p style={{ fontSize: '0.875rem', color: '#999' }}>
-              Looking for SE winds (112.5°–157.5°) with {'<20%'} rain chance
+              Looking for SE winds (100°–170°) with {'<20%'} rain chance
             </p>
           </section>
 
