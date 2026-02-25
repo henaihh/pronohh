@@ -3,6 +3,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { findGoodWindows, getConditionLabel, formatTimeRange } from '@/lib/windLogic';
 
+const CALENDAR_DAY_LABELS = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+const CALENDAR_SWATCHES = {
+  good: { background: 'rgba(34, 197, 94, 0.18)', border: 'rgba(34, 197, 94, 0.65)', text: '#bbf7d0' },
+  maybe: { background: 'rgba(250, 204, 21, 0.15)', border: 'rgba(234, 179, 8, 0.45)', text: '#fde68a' },
+  none: { background: 'rgba(255, 255, 255, 0.02)', border: 'rgba(255, 255, 255, 0.12)', text: '#fff' },
+};
+
 export default function Home() {
   const [minWind, setMinWind] = useState(12);
   const [forecast, setForecast] = useState(null);
@@ -64,6 +71,46 @@ export default function Home() {
     return Array.from(map.values());
   }, [goodWindows]);
   const totalWindowCount = goodWindows.length;
+
+  const windowStatusByDate = useMemo(() => {
+    const status = {};
+    goodWindows.forEach((window) => {
+      const key = window.startTime.toISOString().split('T')[0];
+      const label = getConditionLabel(parseFloat(window.avgWind), minWind);
+      if (label === 'GO') {
+        status[key] = 'good';
+      } else if (label === 'MAYBE' && status[key] !== 'good') {
+        status[key] = 'maybe';
+      }
+    });
+    return status;
+  }, [goodWindows, minWind]);
+
+  const calendarData = useMemo(() => {
+    const today = new Date();
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    const leadingEmpty = monthStart.getDay();
+    const cells = [];
+    for (let i = 0; i < leadingEmpty; i += 1) {
+      cells.push(null);
+    }
+    for (let day = 1; day <= monthEnd.getDate(); day += 1) {
+      const cellDate = new Date(today.getFullYear(), today.getMonth(), day);
+      const key = cellDate.toISOString().split('T')[0];
+      cells.push({
+        date: cellDate,
+        key,
+        status: windowStatusByDate[key] || null,
+      });
+    }
+    const monthLabel = monthStart.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+    return {
+      monthLabel,
+      cells,
+      todayKey: today.toISOString().split('T')[0],
+    };
+  }, [windowStatusByDate]);
 
   return (
     <main style={{ minHeight: '100vh', backgroundColor: '#000' }}>
