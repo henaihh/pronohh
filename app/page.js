@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { findGoodWindows, getConditionLabel, formatTimeRange } from '@/lib/windLogic';
 
 export default function Home() {
@@ -22,7 +22,7 @@ export default function Home() {
   useEffect(() => {
     if (forecast) {
       const windows = findGoodWindows(forecast.hourly, minWind);
-      setGoodWindows(windows.slice(0, 7)); // Show top 7 windows
+      setGoodWindows(windows); // Show every available window from the forecast horizon
     }
   }, [minWind, forecast]);
 
@@ -43,6 +43,27 @@ export default function Home() {
   }
 
   const currentConditions = forecast?.hourly[0];
+  const groupedWindows = useMemo(() => {
+    if (!goodWindows.length) return [];
+    const map = new Map();
+    goodWindows.forEach((window) => {
+      const key = window.startTime.toISOString().split('T')[0];
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          label: window.startTime.toLocaleDateString('es-AR', {
+            weekday: 'long',
+            month: 'short',
+            day: 'numeric',
+          }),
+          windows: [],
+        });
+      }
+      map.get(key).windows.push(window);
+    });
+    return Array.from(map.values());
+  }, [goodWindows]);
+  const totalWindowCount = goodWindows.length;
 
   return (
     <main style={{ minHeight: '100vh', backgroundColor: '#000' }}>
@@ -146,7 +167,7 @@ export default function Home() {
               </div>
             </div>
             <p style={{ fontSize: '0.875rem', color: '#999' }}>
-              Looking for SE winds (112.5°–157.5°) with &lt;20% rain chance
+              Looking for SE winds (112.5°–157.5°) with {'<20%'} rain chance
             </p>
           </section>
 
@@ -204,13 +225,18 @@ export default function Home() {
             <h2 style={{
               fontSize: '2rem',
               fontWeight: 'bold',
-              marginBottom: '1.5rem',
+              marginBottom: '0.75rem',
               borderBottom: '1px solid rgba(0, 217, 255, 0.2)',
               paddingBottom: '1rem'
             }}>
               Next Good Windows
             </h2>
-            {goodWindows.length === 0 ? (
+            {totalWindowCount > 0 && (
+              <p style={{ color: '#999', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+                All qualifying SE windows over the next 10-day outlook • {totalWindowCount} total
+              </p>
+            )}
+            {totalWindowCount === 0 ? (
               <div style={{
                 backgroundColor: 'rgba(180, 83, 9, 0.1)',
                 border: '1px solid rgba(180, 83, 9, 0.3)',
@@ -219,77 +245,92 @@ export default function Home() {
                 textAlign: 'center'
               }}>
                 <p style={{ color: '#fcd34d', fontSize: '1.1rem', fontWeight: '600' }}>
-                  No good windows in the next 5 days at {minWind}+ knots SE wind
+                  No good windows in the next 10 days at {minWind}+ knots SE wind
                 </p>
                 <p style={{ color: '#999', fontSize: '0.875rem', marginTop: '0.5rem' }}>
                   Try lowering the wind threshold
                 </p>
               </div>
             ) : (
-              <div style={{ display: 'grid', gap: '1rem' }}>
-                {goodWindows.map((window, idx) => {
-                  const label = getConditionLabel(parseFloat(window.avgWind), minWind);
-                  const labelColor = label === 'GO'
-                    ? { text: '#4ade80', bg: 'rgba(34, 197, 94, 0.2)' }
-                    : label === 'MAYBE'
-                    ? { text: '#facc15', bg: 'rgba(202, 138, 4, 0.2)' }
-                    : { text: '#f87171', bg: 'rgba(239, 68, 68, 0.2)' };
+              groupedWindows.map((group) => (
+                <div key={group.key} style={{ marginBottom: '2rem' }}>
+                  <p style={{
+                    color: '#ccc',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    marginBottom: '0.75rem'
+                  }}>
+                    {group.label}
+                  </p>
+                  <div style={{ display: 'grid', gap: '1rem' }}>
+                    {group.windows.map((window) => {
+                      const label = getConditionLabel(parseFloat(window.avgWind), minWind);
+                      const labelColor = label === 'GO'
+                        ? { text: '#4ade80', bg: 'rgba(34, 197, 94, 0.2)' }
+                        : label === 'MAYBE'
+                        ? { text: '#facc15', bg: 'rgba(202, 138, 4, 0.2)' }
+                        : { text: '#f87171', bg: 'rgba(239, 68, 68, 0.2)' };
+                      const windowKey = `${group.key}-${window.startTime.getTime()}-${window.endTime.getTime()}`;
 
-                  return (
-                    <div
-                      key={idx}
-                      style={{
-                        backgroundColor: 'rgba(0, 100, 200, 0.1)',
-                        border: '1px solid rgba(0, 217, 255, 0.2)',
-                        borderRadius: '0.5rem',
-                        padding: '1rem',
-                        transition: 'all 0.3s',
-                        cursor: 'pointer'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = 'rgba(0, 100, 200, 0.2)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'rgba(0, 100, 200, 0.1)';
-                      }}
-                    >
-                      <div style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'flex-start',
-                        marginBottom: '0.5rem'
-                      }}>
-                        <div>
-                          <p style={{ color: '#999', fontSize: '0.875rem' }}>
-                            {formatTimeRange(window.startTime, window.endTime)}
-                          </p>
-                          <p style={{
-                            fontSize: '1.1rem',
-                            fontWeight: '600',
-                            color: '#fff',
-                            marginTop: '0.25rem'
+                      return (
+                        <div
+                          key={windowKey}
+                          style={{
+                            backgroundColor: 'rgba(0, 100, 200, 0.1)',
+                            border: '1px solid rgba(0, 217, 255, 0.2)',
+                            borderRadius: '0.5rem',
+                            padding: '1rem',
+                            transition: 'all 0.3s',
+                            cursor: 'pointer'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = 'rgba(0, 100, 200, 0.2)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'rgba(0, 100, 200, 0.1)';
+                          }}
+                        >
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'flex-start',
+                            marginBottom: '0.5rem'
                           }}>
-                            {window.duration}h window • Avg {window.avgWind} knots
+                            <div>
+                              <p style={{ color: '#999', fontSize: '0.875rem' }}>
+                                {formatTimeRange(window.startTime, window.endTime)}
+                              </p>
+                              <p style={{
+                                fontSize: '1.1rem',
+                                fontWeight: '600',
+                                color: '#fff',
+                                marginTop: '0.25rem'
+                              }}>
+                                {window.duration}h window • Avg {window.avgWind} knots
+                              </p>
+                            </div>
+                            <span style={{
+                              padding: '0.25rem 0.75rem',
+                              borderRadius: '0.25rem',
+                              fontWeight: 'bold',
+                              fontSize: '0.875rem',
+                              color: labelColor.text,
+                              backgroundColor: labelColor.bg
+                            }}>
+                              {label}
+                            </span>
+                          </div>
+                          <p style={{ color: '#999', fontSize: '0.875rem' }}>
+                            Wind: {window.hours[0].wind_deg}° • Rain: {'<20%'}
                           </p>
                         </div>
-                        <span style={{
-                          padding: '0.25rem 0.75rem',
-                          borderRadius: '0.25rem',
-                          fontWeight: 'bold',
-                          fontSize: '0.875rem',
-                          color: labelColor.text,
-                          backgroundColor: labelColor.bg
-                        }}>
-                          {label}
-                        </span>
-                      </div>
-                      <p style={{ color: '#999', fontSize: '0.875rem' }}>
-                        Wind: {window.hours[0].wind_deg}° • Rain: &lt;20%
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))
             )}
           </section>
 
