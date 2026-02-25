@@ -218,6 +218,85 @@ export default function Home() {
             </p>
           </section>
 
+          {/* Wind Calendar */}
+          <section style={{ marginBottom: '2rem' }}>
+            <h2 style={{
+              fontSize: '2rem',
+              fontWeight: 'bold',
+              marginBottom: '0.75rem',
+              borderBottom: '1px solid rgba(0, 217, 255, 0.2)',
+              paddingBottom: '1rem'
+            }}>
+              Wind Calendar
+            </h2>
+            <p style={{ color: '#999', fontSize: '0.9rem', marginBottom: '1rem' }}>
+              Today is outlined. Green dates mean strong SE windows, yellow shows lighter opportunities.
+            </p>
+            <div style={{ display: 'flex', gap: '1rem', fontSize: '0.85rem', color: '#ccc', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ width: '14px', height: '14px', borderRadius: '0.25rem', background: CALENDAR_SWATCHES.good.background, border: `1px solid ${CALENDAR_SWATCHES.good.border}` }}></span>
+                Buena ventana
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ width: '14px', height: '14px', borderRadius: '0.25rem', background: CALENDAR_SWATCHES.maybe.background, border: `1px solid ${CALENDAR_SWATCHES.maybe.border}` }}></span>
+                Menos viento
+              </div>
+            </div>
+            <p style={{ color: '#fff', fontSize: '1rem', marginTop: '1rem', textTransform: 'capitalize' }}>
+              {calendarData.monthLabel}
+            </p>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
+              gap: '0.35rem',
+              fontSize: '0.75rem',
+              color: '#666',
+              textTransform: 'uppercase'
+            }}>
+              {CALENDAR_DAY_LABELS.map((label) => (
+                <div key={label} style={{ textAlign: 'center', letterSpacing: '0.08em' }}>{label}</div>
+              ))}
+            </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
+              gap: '0.5rem',
+              marginTop: '0.5rem'
+            }}>
+              {calendarData.cells.map((cell, idx) => {
+                if (!cell) {
+                  return <div key={`empty-${idx}`} style={{ minHeight: '56px' }} />;
+                }
+                const palette = cell.status === 'good'
+                  ? CALENDAR_SWATCHES.good
+                  : cell.status === 'maybe'
+                  ? CALENDAR_SWATCHES.maybe
+                  : CALENDAR_SWATCHES.none;
+                const isToday = cell.key === calendarData.todayKey;
+                return (
+                  <div
+                    key={cell.key}
+                    style={{
+                      minHeight: '56px',
+                      borderRadius: '0.5rem',
+                      border: `1px solid ${palette.border}`,
+                      background: palette.background,
+                      color: palette.text,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 600,
+                      position: 'relative',
+                      boxShadow: isToday ? '0 0 0 2px rgba(0, 217, 255, 0.45)' : 'none'
+                    }}
+                  >
+                    {cell.date.getDate()}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
           {/* Current Conditions */}
           {currentConditions && (
             <section style={{
@@ -385,7 +464,7 @@ export default function Home() {
                                   display: 'inline-block',
                                   color: '#00d9ff',
                                   fontSize: '1.1rem',
-                                  transform: `rotate(${Math.round(window.hours[0]?.wind_deg ?? 0)}deg)`,
+                                  transform: `rotate(${((Math.round(window.hours[0]?.wind_deg ?? 0) + 180) % 360)}deg)`,
                                   transition: 'transform 0.2s ease'
                                 }}
                               >
