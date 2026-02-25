@@ -167,7 +167,7 @@ export default function Home() {
               </div>
             </div>
             <p style={{ fontSize: '0.875rem', color: '#999' }}>
-              Looking for SE winds (100°–170°) with {'<20%'} rain chance
+              Looking for SE winds (90°–170°) with {'<20%'} rain chance
             </p>
           </section>
 
@@ -322,9 +322,38 @@ export default function Home() {
                               {label}
                             </span>
                           </div>
-                          <p style={{ color: '#999', fontSize: '0.875rem' }}>
-                            Wind: {window.hours[0].wind_deg}° • Rain: {'<20%'}
-                          </p>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <div style={{
+                              width: '38px',
+                              height: '38px',
+                              border: '1px solid rgba(0, 217, 255, 0.3)',
+                              borderRadius: '999px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}>
+                              <span
+                                aria-hidden="true"
+                                style={{
+                                  display: 'inline-block',
+                                  color: '#00d9ff',
+                                  fontSize: '1.1rem',
+                                  transform: `rotate(${Math.round(window.hours[0]?.wind_deg ?? 0)}deg)`,
+                                  transition: 'transform 0.2s ease'
+                                }}
+                              >
+                                ↑
+                              </span>
+                            </div>
+                            <div style={{ color: '#999', fontSize: '0.85rem', lineHeight: 1.4 }}>
+                              <p style={{ margin: 0 }}>
+                                Wind: {Math.round(window.hours[0]?.wind_deg ?? 0)}° (from)
+                              </p>
+                              <p style={{ margin: 0 }}>
+                                Rain: {'<20%'}
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       );
                     })}
