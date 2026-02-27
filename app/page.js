@@ -477,30 +477,6 @@ export default function Home() {
             )}
           </section>
 
-          {/* Windguru Forecast */}
-          <section style={{ marginBottom: '2rem' }}>
-            <h2 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: '0.75rem', color: '#eee' }}>
-              🌬️ Windguru — Buenos Aires
-            </h2>
-            <div style={{
-              backgroundColor: 'rgba(0, 100, 200, 0.08)',
-              border: '1px solid rgba(0, 217, 255, 0.15)',
-              borderRadius: '12px',
-              overflow: 'hidden',
-            }}>
-              <iframe
-                src="https://www.windguru.cz/int/iframes.php?s=261&uid=ig_mbl"
-                width="100%"
-                height="400"
-                style={{ border: 'none', display: 'block' }}
-                loading="lazy"
-              ></iframe>
-            </div>
-            <p style={{ color: '#666', fontSize: '0.75rem', marginTop: '0.5rem' }}>
-              Source: <a href="https://www.windguru.cz/261" target="_blank" rel="noopener noreferrer" style={{ color: '#00d9ff', textDecoration: 'none' }}>windguru.cz</a>
-            </p>
-          </section>
-
           {/* Webcams + Resources side by side on desktop */}
           <div style={{
             display: 'grid',
@@ -571,6 +547,31 @@ export default function Home() {
               </div>
             </section>
           </div>
+
+          {/* Windguru Forecast */}
+          <section style={{ marginBottom: '2rem' }}>
+            <h2 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: '0.75rem', color: '#eee' }}>
+              🌬️ Windguru — Buenos Aires
+            </h2>
+            <div style={{
+              backgroundColor: '#fff',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              border: '1px solid rgba(0, 217, 255, 0.15)',
+            }}>
+              <iframe
+                src="https://www.windguru.cz/261"
+                width="100%"
+                height="500"
+                style={{ border: 'none', display: 'block' }}
+                loading="lazy"
+                sandbox="allow-scripts allow-same-origin"
+              ></iframe>
+            </div>
+            <p style={{ color: '#666', fontSize: '0.75rem', marginTop: '0.5rem' }}>
+              Source: <a href="https://www.windguru.cz/261" target="_blank" rel="noopener noreferrer" style={{ color: '#00d9ff', textDecoration: 'none' }}>windguru.cz/261</a>
+            </p>
+          </section>
         </div>
       )}
     </main>
