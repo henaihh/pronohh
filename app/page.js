@@ -553,21 +553,25 @@ export default function Home() {
             <h2 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: '0.75rem', color: '#eee' }}>
               🌬️ Windguru — Buenos Aires
             </h2>
-            <div style={{
-              backgroundColor: '#fff',
-              borderRadius: '12px',
-              overflow: 'hidden',
-              border: '1px solid rgba(0, 217, 255, 0.15)',
-            }}>
-              <iframe
-                src="https://www.windguru.cz/261"
-                width="100%"
-                height="500"
-                style={{ border: 'none', display: 'block' }}
-                loading="lazy"
-                sandbox="allow-scripts allow-same-origin"
-              ></iframe>
-            </div>
+            <div
+              id="windguru-widget"
+              style={{
+                borderRadius: '12px',
+                overflow: 'hidden',
+                border: '1px solid rgba(0, 217, 255, 0.15)',
+                backgroundColor: '#fff',
+                padding: '0.5rem',
+              }}
+              ref={(el) => {
+                if (el && !el.dataset.loaded) {
+                  el.dataset.loaded = 'true';
+                  const script = document.createElement('script');
+                  script.src = 'https://www.windguru.cz/js/widget.php?s=261';
+                  script.async = true;
+                  el.appendChild(script);
+                }
+              }}
+            />
             <p style={{ color: '#666', fontSize: '0.75rem', marginTop: '0.5rem' }}>
               Source: <a href="https://www.windguru.cz/261" target="_blank" rel="noopener noreferrer" style={{ color: '#00d9ff', textDecoration: 'none' }}>windguru.cz/261</a>
             </p>
