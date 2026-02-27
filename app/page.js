@@ -3,12 +3,54 @@
 import { useEffect, useMemo, useState } from 'react';
 import { findGoodWindows, getConditionLabel, formatTimeRange } from '@/lib/windLogic';
 
-const CALENDAR_DAY_LABELS = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
-const CALENDAR_SWATCHES = {
-  good: { background: 'rgba(34, 197, 94, 0.18)', border: 'rgba(34, 197, 94, 0.65)', text: '#bbf7d0' },
-  maybe: { background: 'rgba(250, 204, 21, 0.15)', border: 'rgba(234, 179, 8, 0.45)', text: '#fde68a' },
-  none: { background: 'rgba(255, 255, 255, 0.02)', border: 'rgba(255, 255, 255, 0.12)', text: '#fff' },
-};
+const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+function getWeatherEmoji(description) {
+  const d = description?.toLowerCase() || '';
+  if (d.includes('thunder')) return '🌩️';
+  if (d.includes('drizzle') || d.includes('rain')) return '🌧️';
+  if (d.includes('snow')) return '❄️';
+  if (d.includes('mist') || d.includes('fog') || d.includes('haze')) return '🌫️';
+  if (d.includes('clear')) return '☀️';
+  if (d.includes('few clouds') || d.includes('scattered')) return '🌤️';
+  if (d.includes('cloud')) return '⛅';
+  return '🌤️';
+}
+
+function getRainColor(pct) {
+  if (pct < 20) return '#4ade80';
+  if (pct <= 50) return '#facc15';
+  return '#f87171';
+}
+
+function WindBar({ knots, gust }) {
+  const pct = Math.min((knots / 40) * 100, 100);
+  return (
+    <div style={{ width: '100%' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#aaa', marginBottom: 2 }}>
+        <span>{knots} kts{gust ? ` (G${gust})` : ''}</span>
+        <span style={{ color: '#666' }}>40</span>
+      </div>
+      <div style={{ width: '100%', height: 6, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 3 }}>
+        <div style={{
+          width: `${pct}%`,
+          height: '100%',
+          borderRadius: 3,
+          background: `linear-gradient(90deg, #facc15, #00d9ff)`,
+          transition: 'width 0.3s',
+        }} />
+      </div>
+    </div>
+  );
+}
+
+function RainBadge({ pct }) {
+  return (
+    <span style={{ color: getRainColor(pct), fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+      💧 {Math.round(pct)}%
+    </span>
+  );
+}
 
 export default function Home() {
   const [minWind, setMinWind] = useState(12);
@@ -17,19 +59,18 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [goodWindows, setGoodWindows] = useState([]);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [selectedDay, setSelectedDay] = useState(null);
 
-  // Fetch forecast on mount
   useEffect(() => {
     fetchForecast();
-    const interval = setInterval(fetchForecast, 30 * 60 * 1000); // Refresh every 30 min
+    const interval = setInterval(fetchForecast, 30 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
-  // Recalculate windows when minWind changes
   useEffect(() => {
     if (forecast) {
       const windows = findGoodWindows(forecast.hourly, minWind);
-      setGoodWindows(windows); // Show every available window from the forecast horizon
+      setGoodWindows(windows);
     }
   }, [minWind, forecast]);
 
@@ -50,27 +91,6 @@ export default function Home() {
   }
 
   const currentConditions = forecast?.hourly[0];
-  const groupedWindows = useMemo(() => {
-    if (!goodWindows.length) return [];
-    const map = new Map();
-    goodWindows.forEach((window) => {
-      const key = window.startTime.toISOString().split('T')[0];
-      if (!map.has(key)) {
-        map.set(key, {
-          key,
-          label: window.startTime.toLocaleDateString('es-AR', {
-            weekday: 'long',
-            month: 'short',
-            day: 'numeric',
-          }),
-          windows: [],
-        });
-      }
-      map.get(key).windows.push(window);
-    });
-    return Array.from(map.values());
-  }, [goodWindows]);
-  const totalWindowCount = goodWindows.length;
 
   const windowStatusByDate = useMemo(() => {
     const status = {};
@@ -86,59 +106,112 @@ export default function Home() {
     return status;
   }, [goodWindows, minWind]);
 
-  const calendarData = useMemo(() => {
+  // Weather description by date (most common from hourly data)
+  const weatherByDate = useMemo(() => {
+    if (!forecast) return {};
+    const map = {};
+    forecast.hourly.forEach((h) => {
+      const key = new Date(h.dt * 1000).toISOString().split('T')[0];
+      if (!map[key]) map[key] = [];
+      map[key].push(h);
+    });
+    const result = {};
+    Object.entries(map).forEach(([key, hours]) => {
+      // Pick midday hour or first available
+      const mid = hours.find(h => new Date(h.dt * 1000).getHours() >= 12) || hours[0];
+      result[key] = {
+        description: mid.description,
+        temp: Math.round(mid.temp),
+        rain: Math.round(mid.precipitation_probability),
+      };
+    });
+    return result;
+  }, [forecast]);
+
+  // 10-day strip data
+  const dayStrip = useMemo(() => {
     const today = new Date();
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-    const leadingEmpty = monthStart.getDay();
-    const cells = [];
-    for (let i = 0; i < leadingEmpty; i += 1) {
-      cells.push(null);
-    }
-    for (let day = 1; day <= monthEnd.getDate(); day += 1) {
-      const cellDate = new Date(today.getFullYear(), today.getMonth(), day);
-      const key = cellDate.toISOString().split('T')[0];
-      cells.push({
-        date: cellDate,
+    const todayKey = today.toISOString().split('T')[0];
+    const days = [];
+    for (let i = 0; i < 10; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() + i);
+      const key = d.toISOString().split('T')[0];
+      const status = windowStatusByDate[key] || null;
+      const weather = weatherByDate[key] || null;
+      days.push({
         key,
-        status: windowStatusByDate[key] || null,
+        date: d,
+        dayName: DAY_NAMES[d.getDay()],
+        dayNum: d.getDate(),
+        isToday: key === todayKey,
+        status,
+        emoji: weather ? getWeatherEmoji(weather.description) : '—',
+        temp: weather?.temp,
       });
     }
-    const monthLabel = monthStart.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
-    return {
-      monthLabel,
-      cells,
-      todayKey: today.toISOString().split('T')[0],
-    };
-  }, [windowStatusByDate]);
+    return days;
+  }, [windowStatusByDate, weatherByDate]);
+
+  const groupedWindows = useMemo(() => {
+    if (!goodWindows.length) return [];
+    let filtered = goodWindows;
+    if (selectedDay) {
+      filtered = goodWindows.filter(w => w.startTime.toISOString().split('T')[0] === selectedDay);
+    }
+    const map = new Map();
+    filtered.forEach((window) => {
+      const key = window.startTime.toISOString().split('T')[0];
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          label: window.startTime.toLocaleDateString('es-AR', {
+            weekday: 'long',
+            month: 'short',
+            day: 'numeric',
+          }),
+          windows: [],
+        });
+      }
+      map.get(key).windows.push(window);
+    });
+    return Array.from(map.values());
+  }, [goodWindows, selectedDay]);
+
+  const totalWindowCount = goodWindows.length;
+
+  const cardBase = {
+    backgroundColor: 'rgba(0, 100, 200, 0.08)',
+    border: '1px solid rgba(0, 217, 255, 0.15)',
+    borderRadius: 12,
+    padding: '1rem',
+    transition: 'background-color 0.2s, border-color 0.2s',
+  };
 
   return (
-    <main style={{ minHeight: '100vh', backgroundColor: '#000' }}>
+    <main style={{ minHeight: '100vh', backgroundColor: '#000', color: '#fff' }}>
       {/* Header */}
-      <header style={{
-        borderBottom: '1px solid rgba(0, 217, 255, 0.2)',
-        padding: '2rem 1rem'
-      }}>
+      <header style={{ borderBottom: '1px solid rgba(0, 217, 255, 0.2)', padding: '1.5rem 1rem' }}>
         <div style={{ maxWidth: '80rem', margin: '0 auto' }}>
           <h1 style={{
-            fontSize: '3rem',
+            fontSize: '2.5rem',
             fontWeight: 'bold',
-            marginBottom: '0.5rem',
+            marginBottom: '0.25rem',
             background: 'linear-gradient(135deg, #00d9ff, #0099ff)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text'
+            backgroundClip: 'text',
           }}>
             PronoHH 🌊
           </h1>
-          <p style={{ color: '#999', fontSize: '1.1rem' }}>
+          <p style={{ color: '#888', fontSize: '0.95rem' }}>
             Wind forecast for Rio de la Plata sailors
+            {lastUpdate && (
+              <span style={{ color: '#555', marginLeft: '0.75rem', fontSize: '0.8rem' }}>
+                Updated {lastUpdate.toLocaleTimeString('es-AR')}
+              </span>
+            )}
           </p>
-          {lastUpdate && (
-            <p style={{ color: '#666', fontSize: '0.875rem', marginTop: '0.5rem' }}>
-              Last update: {lastUpdate.toLocaleTimeString('es-AR')}
-            </p>
-          )}
         </div>
       </header>
 
@@ -149,42 +222,53 @@ export default function Home() {
           color: '#fca5a5',
           padding: '1rem',
           margin: '1rem',
-          borderRadius: '0.5rem'
+          borderRadius: 12,
         }}>
           Error: {error}
         </div>
       )}
 
       {loading ? (
-        <div style={{
-          maxWidth: '80rem',
-          margin: '0 auto',
-          paddingY: '3rem',
-          textAlign: 'center'
-        }}>
+        <div style={{ maxWidth: '80rem', margin: '0 auto', padding: '3rem', textAlign: 'center' }}>
           <p style={{ color: '#666' }}>Loading forecast...</p>
         </div>
       ) : (
-        <div style={{ maxWidth: '80rem', margin: '0 auto', padding: '2rem 1rem' }}>
+        <div style={{ maxWidth: '80rem', margin: '0 auto', padding: '1.5rem 1rem' }}>
+
+          {/* Current Conditions */}
+          {currentConditions && (
+            <section style={{ ...cardBase, marginBottom: '1.5rem', padding: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '2.5rem' }}>{getWeatherEmoji(currentConditions.description)}</span>
+                <div style={{ flex: 1, minWidth: 120 }}>
+                  <p style={{ color: '#888', fontSize: '0.75rem', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Right Now</p>
+                  <p style={{ fontSize: '1.1rem', fontWeight: 600, margin: '2px 0 0', color: '#eee' }}>
+                    {currentConditions.description} • {currentConditions.temp}°C
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ color: '#00d9ff', fontSize: '1.4rem', fontWeight: 700, margin: 0 }}>{currentConditions.wind_speed}</p>
+                    <p style={{ color: '#666', fontSize: '0.7rem', margin: 0 }}>kts</p>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ color: '#00d9ff', fontSize: '1.4rem', fontWeight: 700, margin: 0 }}>{currentConditions.wind_deg}°</p>
+                    <p style={{ color: '#666', fontSize: '0.7rem', margin: 0 }}>dir</p>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <RainBadge pct={currentConditions.precipitation_probability} />
+                    <p style={{ color: '#666', fontSize: '0.7rem', margin: 0 }}>rain</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* Wind Threshold Slider */}
-          <section style={{
-            backgroundColor: 'rgba(0, 100, 200, 0.1)',
-            border: '1px solid rgba(0, 217, 255, 0.2)',
-            borderRadius: '0.5rem',
-            padding: '1.5rem',
-            marginBottom: '2rem'
-          }}>
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{
-                display: 'block',
-                fontSize: '0.875rem',
-                fontWeight: '600',
-                color: '#ccc',
-                marginBottom: '1rem'
-              }}>
-                Minimum Wind Speed: <span style={{ color: '#00d9ff', fontSize: '1.1rem' }}>
-                  {minWind} knots
-                </span>
+          <section style={{ ...cardBase, marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+              <label style={{ fontSize: '0.85rem', color: '#aaa', whiteSpace: 'nowrap' }}>
+                Min wind: <span style={{ color: '#00d9ff', fontWeight: 700, fontSize: '1.05rem' }}>{minWind} kts</span>
               </label>
               <input
                 type="range"
@@ -193,204 +277,122 @@ export default function Home() {
                 step="1"
                 value={minWind}
                 onChange={(e) => setMinWind(Number(e.target.value))}
-                style={{
-                  width: '100%',
-                  height: '0.5rem',
-                  backgroundColor: '#444',
-                  borderRadius: '0.25rem',
-                  cursor: 'pointer',
-                  accentColor: '#00d9ff'
-                }}
+                style={{ flex: 1, minWidth: 120, height: 6, accentColor: '#00d9ff', cursor: 'pointer' }}
               />
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                fontSize: '0.75rem',
-                color: '#666',
-                marginTop: '0.5rem'
-              }}>
-                <span>5 knots</span>
-                <span>40 knots</span>
-              </div>
+              <span style={{ fontSize: '0.75rem', color: '#555' }}>SE 90°–170° only</span>
             </div>
-            <p style={{ fontSize: '0.875rem', color: '#999' }}>
-              Looking for SE winds (90°–170°) with {'<20%'} rain chance
-            </p>
           </section>
 
-          {/* Wind Calendar */}
-          <section style={{ marginBottom: '2rem' }}>
-            <h2 style={{
-              fontSize: '2rem',
-              fontWeight: 'bold',
-              marginBottom: '0.75rem',
-              borderBottom: '1px solid rgba(0, 217, 255, 0.2)',
-              paddingBottom: '1rem'
-            }}>
-              Wind Calendar
+          {/* 10-Day Strip */}
+          <section style={{ marginBottom: '1.5rem' }}>
+            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#ccc', marginBottom: '0.75rem' }}>
+              10-Day Outlook
             </h2>
-            <p style={{ color: '#999', fontSize: '0.9rem', marginBottom: '1rem' }}>
-              Today is outlined. Green dates mean strong SE windows, yellow shows lighter opportunities.
-            </p>
-            <div style={{ display: 'flex', gap: '1rem', fontSize: '0.85rem', color: '#ccc', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <span style={{ width: '14px', height: '14px', borderRadius: '0.25rem', background: CALENDAR_SWATCHES.good.background, border: `1px solid ${CALENDAR_SWATCHES.good.border}` }}></span>
-                Buena ventana
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <span style={{ width: '14px', height: '14px', borderRadius: '0.25rem', background: CALENDAR_SWATCHES.maybe.background, border: `1px solid ${CALENDAR_SWATCHES.maybe.border}` }}></span>
-                Menos viento
-              </div>
-            </div>
-            <p style={{ color: '#fff', fontSize: '1rem', marginTop: '1rem', textTransform: 'capitalize' }}>
-              {calendarData.monthLabel}
-            </p>
             <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-              gap: '0.35rem',
-              fontSize: '0.75rem',
-              color: '#666',
-              textTransform: 'uppercase'
+              display: 'flex',
+              gap: 8,
+              overflowX: 'auto',
+              paddingBottom: 4,
+              WebkitOverflowScrolling: 'touch',
             }}>
-              {CALENDAR_DAY_LABELS.map((label) => (
-                <div key={label} style={{ textAlign: 'center', letterSpacing: '0.08em' }}>{label}</div>
-              ))}
-            </div>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-              gap: '0.5rem',
-              marginTop: '0.5rem'
-            }}>
-              {calendarData.cells.map((cell, idx) => {
-                if (!cell) {
-                  return <div key={`empty-${idx}`} style={{ minHeight: '56px' }} />;
-                }
-                const palette = cell.status === 'good'
-                  ? CALENDAR_SWATCHES.good
-                  : cell.status === 'maybe'
-                  ? CALENDAR_SWATCHES.maybe
-                  : CALENDAR_SWATCHES.none;
-                const isToday = cell.key === calendarData.todayKey;
+              {dayStrip.map((day) => {
+                const bg = day.status === 'good'
+                  ? 'rgba(34, 197, 94, 0.2)'
+                  : day.status === 'maybe'
+                  ? 'rgba(250, 204, 21, 0.15)'
+                  : 'rgba(255,255,255,0.03)';
+                const borderColor = day.status === 'good'
+                  ? 'rgba(34, 197, 94, 0.6)'
+                  : day.status === 'maybe'
+                  ? 'rgba(234, 179, 8, 0.5)'
+                  : 'rgba(255,255,255,0.1)';
+                const isSelected = selectedDay === day.key;
                 return (
                   <div
-                    key={cell.key}
+                    key={day.key}
+                    onClick={() => setSelectedDay(isSelected ? null : day.key)}
                     style={{
-                      minHeight: '56px',
-                      borderRadius: '0.5rem',
-                      border: `1px solid ${palette.border}`,
-                      background: palette.background,
-                      color: palette.text,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: 600,
-                      position: 'relative',
-                      boxShadow: isToday ? '0 0 0 2px rgba(0, 217, 255, 0.45)' : 'none'
+                      flex: '1 0 auto',
+                      minWidth: 62,
+                      padding: '0.5rem 0.4rem',
+                      borderRadius: 12,
+                      border: `1.5px solid ${borderColor}`,
+                      background: bg,
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      boxShadow: day.isToday ? '0 0 0 2px rgba(0, 217, 255, 0.5)' : isSelected ? '0 0 0 2px rgba(0, 217, 255, 0.3)' : 'none',
+                      transition: 'box-shadow 0.2s',
                     }}
                   >
-                    {cell.date.getDate()}
+                    <p style={{ margin: 0, fontSize: '0.7rem', color: day.isToday ? '#00d9ff' : '#888', fontWeight: day.isToday ? 700 : 400 }}>
+                      {day.isToday ? 'HOY' : day.dayName}
+                    </p>
+                    <p style={{ margin: '2px 0', fontSize: '1.1rem', fontWeight: 700, color: '#eee' }}>{day.dayNum}</p>
+                    <p style={{ margin: 0, fontSize: '1.2rem', lineHeight: 1 }}>{day.emoji}</p>
+                    {day.temp != null && (
+                      <p style={{ margin: '2px 0 0', fontSize: '0.7rem', color: '#888' }}>{day.temp}°</p>
+                    )}
                   </div>
                 );
               })}
             </div>
+            <div style={{ display: 'flex', gap: '1rem', fontSize: '0.75rem', color: '#777', marginTop: '0.5rem' }}>
+              <span>🟢 GO</span>
+              <span>🟡 MAYBE</span>
+              {selectedDay && (
+                <span
+                  onClick={() => setSelectedDay(null)}
+                  style={{ marginLeft: 'auto', color: '#00d9ff', cursor: 'pointer' }}
+                >
+                  Show all ✕
+                </span>
+              )}
+            </div>
           </section>
-
-          {/* Current Conditions */}
-          {currentConditions && (
-            <section style={{
-              backgroundColor: 'rgba(0, 100, 200, 0.1)',
-              border: '1px solid rgba(0, 217, 255, 0.2)',
-              borderRadius: '0.5rem',
-              padding: '1.5rem',
-              marginBottom: '2rem'
-            }}>
-              <h2 style={{
-                fontSize: '1.5rem',
-                fontWeight: 'bold',
-                marginBottom: '1rem'
-              }}>
-                Right Now
-              </h2>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '1rem'
-              }}>
-                <div>
-                  <p style={{ color: '#999', fontSize: '0.875rem' }}>Wind Speed</p>
-                  <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#00d9ff' }}>
-                    {currentConditions.wind_speed} kts
-                  </p>
-                </div>
-                <div>
-                  <p style={{ color: '#999', fontSize: '0.875rem' }}>Direction</p>
-                  <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#00d9ff' }}>
-                    {currentConditions.wind_deg}°
-                  </p>
-                </div>
-                <div>
-                  <p style={{ color: '#999', fontSize: '0.875rem' }}>Temperature</p>
-                  <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#00d9ff' }}>
-                    {currentConditions.temp}°C
-                  </p>
-                </div>
-                <div>
-                  <p style={{ color: '#999', fontSize: '0.875rem' }}>Conditions</p>
-                  <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#00d9ff' }}>
-                    {currentConditions.description}
-                  </p>
-                </div>
-              </div>
-            </section>
-          )}
 
           {/* Good Windows */}
           <section style={{ marginBottom: '2rem' }}>
-            <h2 style={{
-              fontSize: '2rem',
-              fontWeight: 'bold',
-              marginBottom: '0.75rem',
-              borderBottom: '1px solid rgba(0, 217, 255, 0.2)',
-              paddingBottom: '1rem'
-            }}>
+            <h2 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: '0.5rem', color: '#eee' }}>
               Next Good Windows
+              {totalWindowCount > 0 && (
+                <span style={{ fontSize: '0.85rem', fontWeight: 400, color: '#666', marginLeft: '0.5rem' }}>
+                  {totalWindowCount} found
+                </span>
+              )}
             </h2>
-            {totalWindowCount > 0 && (
-              <p style={{ color: '#999', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-                All qualifying SE windows over the next 10-day outlook • {totalWindowCount} total
-              </p>
-            )}
             {totalWindowCount === 0 ? (
               <div style={{
+                ...cardBase,
                 backgroundColor: 'rgba(180, 83, 9, 0.1)',
                 border: '1px solid rgba(180, 83, 9, 0.3)',
-                borderRadius: '0.5rem',
+                textAlign: 'center',
                 padding: '1.5rem',
-                textAlign: 'center'
               }}>
-                <p style={{ color: '#fcd34d', fontSize: '1.1rem', fontWeight: '600' }}>
-                  No good windows in the next 10 days at {minWind}+ knots SE wind
+                <p style={{ color: '#fcd34d', fontSize: '1.05rem', fontWeight: 600, margin: 0 }}>
+                  No good windows at {minWind}+ knots SE
                 </p>
-                <p style={{ color: '#999', fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                <p style={{ color: '#999', fontSize: '0.85rem', marginTop: '0.5rem' }}>
                   Try lowering the wind threshold
                 </p>
               </div>
             ) : (
               groupedWindows.map((group) => (
-                <div key={group.key} style={{ marginBottom: '2rem' }}>
+                <div key={group.key} style={{ marginBottom: '1.25rem' }}>
                   <p style={{
-                    color: '#ccc',
-                    fontSize: '0.85rem',
+                    color: '#aaa',
+                    fontSize: '0.8rem',
                     fontWeight: 600,
                     textTransform: 'uppercase',
-                    letterSpacing: '0.08em',
-                    marginBottom: '0.75rem'
+                    letterSpacing: '0.06em',
+                    marginBottom: '0.5rem',
                   }}>
                     {group.label}
                   </p>
-                  <div style={{ display: 'grid', gap: '1rem' }}>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                    gap: '0.75rem',
+                  }}>
                     {group.windows.map((window) => {
                       const label = getConditionLabel(parseFloat(window.avgWind), minWind);
                       const labelColor = label === 'GO'
@@ -398,87 +400,73 @@ export default function Home() {
                         : label === 'MAYBE'
                         ? { text: '#facc15', bg: 'rgba(202, 138, 4, 0.2)' }
                         : { text: '#f87171', bg: 'rgba(239, 68, 68, 0.2)' };
-                      const windowKey = `${group.key}-${window.startTime.getTime()}-${window.endTime.getTime()}`;
+                      const windowKey = `${group.key}-${window.startTime.getTime()}`;
+                      const firstHour = window.hours[0];
+                      const avgRain = Math.round(window.hours.reduce((s, h) => s + h.precipitation_probability, 0) / window.hours.length);
+                      const maxGust = window.hours.reduce((m, h) => Math.max(m, h.wind_gust || 0), 0);
 
                       return (
                         <div
                           key={windowKey}
                           style={{
-                            backgroundColor: 'rgba(0, 100, 200, 0.1)',
-                            border: '1px solid rgba(0, 217, 255, 0.2)',
-                            borderRadius: '0.5rem',
-                            padding: '1rem',
-                            transition: 'all 0.3s',
-                            cursor: 'pointer'
+                            ...cardBase,
+                            padding: '0.85rem 1rem',
                           }}
                           onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = 'rgba(0, 100, 200, 0.2)';
+                            e.currentTarget.style.backgroundColor = 'rgba(0, 100, 200, 0.16)';
+                            e.currentTarget.style.borderColor = 'rgba(0, 217, 255, 0.3)';
                           }}
                           onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = 'rgba(0, 100, 200, 0.1)';
+                            e.currentTarget.style.backgroundColor = 'rgba(0, 100, 200, 0.08)';
+                            e.currentTarget.style.borderColor = 'rgba(0, 217, 255, 0.15)';
                           }}
                         >
-                          <div style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'flex-start',
-                            marginBottom: '0.5rem'
-                          }}>
-                            <div>
-                              <p style={{ color: '#999', fontSize: '0.875rem' }}>
-                                {formatTimeRange(window.startTime, window.endTime)}
-                              </p>
-                              <p style={{
-                                fontSize: '1.1rem',
-                                fontWeight: '600',
-                                color: '#fff',
-                                marginTop: '0.25rem'
-                              }}>
-                                {window.duration}h window • Avg {window.avgWind} knots
-                              </p>
+                          {/* Top row: time, label, emoji */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ fontSize: '1.3rem' }}>{getWeatherEmoji(firstHour.description)}</span>
+                              <div>
+                                <p style={{ margin: 0, fontSize: '0.8rem', color: '#888' }}>
+                                  {formatTimeRange(window.startTime, window.endTime)}
+                                </p>
+                                <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#eee' }}>
+                                  {window.duration}h • {Math.round(firstHour.temp)}°C
+                                </p>
+                              </div>
                             </div>
                             <span style={{
-                              padding: '0.25rem 0.75rem',
-                              borderRadius: '0.25rem',
-                              fontWeight: 'bold',
-                              fontSize: '0.875rem',
+                              padding: '0.2rem 0.6rem',
+                              borderRadius: 8,
+                              fontWeight: 700,
+                              fontSize: '0.8rem',
                               color: labelColor.text,
-                              backgroundColor: labelColor.bg
+                              backgroundColor: labelColor.bg,
                             }}>
                               {label}
                             </span>
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                            <div style={{
-                              width: '38px',
-                              height: '38px',
-                              border: '1px solid rgba(0, 217, 255, 0.3)',
-                              borderRadius: '999px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center'
-                            }}>
-                              <span
-                                aria-hidden="true"
-                                style={{
-                                  display: 'inline-block',
-                                  color: '#00d9ff',
-                                  fontSize: '1.1rem',
-                                  transform: `rotate(${((Math.round(window.hours[0]?.wind_deg ?? 0) + 180) % 360)}deg)`,
-                                  transition: 'transform 0.2s ease'
-                                }}
-                              >
-                                ↑
-                              </span>
+
+                          {/* Wind bar */}
+                          <WindBar knots={parseFloat(window.avgWind)} gust={maxGust || null} />
+
+                          {/* Bottom row: direction + rain */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <span style={{
+                                display: 'inline-block',
+                                width: 24,
+                                height: 24,
+                                border: '1px solid rgba(0, 217, 255, 0.25)',
+                                borderRadius: '50%',
+                                textAlign: 'center',
+                                lineHeight: '22px',
+                                fontSize: '0.8rem',
+                                color: '#00d9ff',
+                                transform: `rotate(${((Math.round(firstHour.wind_deg) + 180) % 360)}deg)`,
+                              }}>↑</span>
+                              <span style={{ color: '#888', fontSize: '0.75rem' }}>{Math.round(firstHour.wind_deg)}°</span>
                             </div>
-                            <div style={{ color: '#999', fontSize: '0.85rem', lineHeight: 1.4 }}>
-                              <p style={{ margin: 0 }}>
-                                Wind: {Math.round(window.hours[0]?.wind_deg ?? 0)}° (from)
-                              </p>
-                              <p style={{ margin: 0 }}>
-                                Rain: {'<20%'}
-                              </p>
-                            </div>
+                            <RainBadge pct={avgRain} />
                           </div>
                         </div>
                       );
@@ -489,32 +477,26 @@ export default function Home() {
             )}
           </section>
 
-          {/* Webcams */}
-          <section style={{ marginBottom: '2rem' }}>
-            <h2 style={{
-              fontSize: '2rem',
-              fontWeight: 'bold',
-              marginBottom: '1.5rem',
-              borderBottom: '1px solid rgba(0, 217, 255, 0.2)',
-              paddingBottom: '1rem'
-            }}>
-              Live Cameras
-            </h2>
-            <div style={{
-              display: 'grid',
-              gap: '1.5rem'
-            }}>
-              <div style={{
-                backgroundColor: 'rgba(0, 100, 200, 0.1)',
-                border: '1px solid rgba(0, 217, 255, 0.2)',
-                borderRadius: '0.5rem',
-                overflow: 'hidden'
-              }}>
+          {/* Webcams + Resources side by side on desktop */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+            gap: '1.5rem',
+            marginBottom: '2rem',
+          }}>
+            {/* Webcam */}
+            <section>
+              <h2 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: '0.75rem', color: '#eee' }}>
+                Live Camera
+              </h2>
+              <div style={{ ...cardBase, padding: 0, overflow: 'hidden' }}>
                 <h3 style={{
-                  fontSize: '1.25rem',
-                  fontWeight: '600',
-                  padding: '1rem',
-                  backgroundColor: 'rgba(0, 100, 200, 0.2)'
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  padding: '0.75rem 1rem',
+                  margin: 0,
+                  backgroundColor: 'rgba(0, 100, 200, 0.15)',
+                  color: '#ccc',
                 }}>
                   Puerto Tablas Webcam
                 </h3>
@@ -527,73 +509,44 @@ export default function Home() {
                   ></iframe>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
 
-          {/* Links */}
-          <section style={{ marginBottom: '3rem' }}>
-            <h2 style={{
-              fontSize: '2rem',
-              fontWeight: 'bold',
-              marginBottom: '1.5rem',
-              borderBottom: '1px solid rgba(0, 217, 255, 0.2)',
-              paddingBottom: '1rem'
-            }}>
-              Resources
-            </h2>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-              gap: '1rem'
-            }}>
-              <a
-                href="https://www.comisionriodelaplata.org/servicios_main.php?sid=VM"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  backgroundColor: 'rgba(0, 100, 200, 0.1)',
-                  border: '1px solid rgba(0, 217, 255, 0.2)',
-                  borderRadius: '0.5rem',
-                  padding: '1rem',
-                  textDecoration: 'none',
-                  transition: 'all 0.3s',
-                  display: 'block'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(0, 100, 200, 0.2)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(0, 100, 200, 0.1)';
-                }}
-              >
-                <p style={{ fontWeight: '600', color: '#00d9ff' }}>Live Wind Station</p>
-                <p style={{ fontSize: '0.875rem', color: '#999' }}>Pilote Norden - Real-time conditions</p>
-              </a>
-              <a
-                href="https://tablademareas.com/ar/buenos-aires/ciudad-de-buenos-aires"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  backgroundColor: 'rgba(0, 100, 200, 0.1)',
-                  border: '1px solid rgba(0, 217, 255, 0.2)',
-                  borderRadius: '0.5rem',
-                  padding: '1rem',
-                  textDecoration: 'none',
-                  transition: 'all 0.3s',
-                  display: 'block'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(0, 100, 200, 0.2)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(0, 100, 200, 0.1)';
-                }}
-              >
-                <p style={{ fontWeight: '600', color: '#00d9ff' }}>Tide Charts</p>
-                <p style={{ fontSize: '0.875rem', color: '#999' }}>Tabla de Mareas - Water height</p>
-              </a>
-            </div>
-          </section>
+            {/* Resources */}
+            <section>
+              <h2 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: '0.75rem', color: '#eee' }}>
+                Resources
+              </h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {[
+                  { href: 'https://www.comisionriodelaplata.org/servicios_main.php?sid=VM', title: 'Live Wind Station', desc: 'Pilote Norden - Real-time conditions' },
+                  { href: 'https://tablademareas.com/ar/buenos-aires/ciudad-de-buenos-aires', title: 'Tide Charts', desc: 'Tabla de Mareas - Water height' },
+                ].map((link) => (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      ...cardBase,
+                      textDecoration: 'none',
+                      display: 'block',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(0, 100, 200, 0.16)';
+                      e.currentTarget.style.borderColor = 'rgba(0, 217, 255, 0.3)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(0, 100, 200, 0.08)';
+                      e.currentTarget.style.borderColor = 'rgba(0, 217, 255, 0.15)';
+                    }}
+                  >
+                    <p style={{ fontWeight: 600, color: '#00d9ff', margin: 0 }}>{link.title}</p>
+                    <p style={{ fontSize: '0.8rem', color: '#888', margin: '0.25rem 0 0' }}>{link.desc}</p>
+                  </a>
+                ))}
+              </div>
+            </section>
+          </div>
         </div>
       )}
     </main>
