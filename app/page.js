@@ -52,11 +52,53 @@ function RainBadge({ pct }) {
   );
 }
 
+function ApiStatusPill({ status, lastUpdate, onRetry }) {
+  const isOk = status.state === 'ok';
+  const isChecking = status.state === 'checking';
+  const color = isOk ? '#4ade80' : isChecking ? '#facc15' : '#f87171';
+  const glow = isOk ? 'rgba(74, 222, 128, 0.22)' : isChecking ? 'rgba(250, 204, 21, 0.18)' : 'rgba(248, 113, 113, 0.22)';
+  const label = isOk ? 'API online' : isChecking ? 'Checking API' : 'API issue';
+  const detail = isOk
+    ? `${status.points ?? 0} wind points${status.cached ? ' · cache local' : ''}`
+    : status.message;
+
+  return (
+    <button
+      type="button"
+      onClick={onRetry}
+      title={detail || 'Forecast API status'}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.45rem',
+        border: `1px solid ${color}`,
+        background: `linear-gradient(135deg, ${glow}, rgba(255,255,255,0.03))`,
+        color,
+        borderRadius: 999,
+        padding: '0.35rem 0.65rem',
+        fontSize: '0.78rem',
+        fontWeight: 700,
+        cursor: 'pointer',
+        boxShadow: `0 0 18px ${glow}`,
+      }}
+    >
+      <span aria-hidden="true">{isOk ? '🟢' : isChecking ? '🟡' : '🔴'}</span>
+      <span>{label}</span>
+      {lastUpdate && isOk && (
+        <span style={{ color: '#777', fontWeight: 500 }}>
+          {lastUpdate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+        </span>
+      )}
+    </button>
+  );
+}
+
 export default function Home() {
   const [minWind, setMinWind] = useState(12);
   const [forecast, setForecast] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [apiStatus, setApiStatus] = useState({ state: 'checking', message: 'Testing /api/forecast' });
   const [goodWindows, setGoodWindows] = useState([]);
   const [lastUpdate, setLastUpdate] = useState(null);
   const [selectedDay, setSelectedDay] = useState(null);
@@ -77,13 +119,27 @@ export default function Home() {
   async function fetchForecast() {
     try {
       setLoading(true);
-      const res = await fetch('/api/forecast');
-      if (!res.ok) throw new Error('Failed to fetch forecast');
-      const { data } = await res.json();
+      setApiStatus((prev) => ({ ...prev, state: 'checking', message: 'Testing /api/forecast' }));
+      const res = await fetch('/api/forecast', { cache: 'no-store' });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok || payload.ok === false) {
+        throw new Error(payload.error || `Forecast endpoint returned HTTP ${res.status}`);
+      }
+      const { data } = payload;
+      if (!data?.hourly?.length) throw new Error('Forecast endpoint returned no wind data');
       setForecast(data);
-      setLastUpdate(new Date());
+      const updatedAt = new Date();
+      setLastUpdate(updatedAt);
+      setApiStatus({
+        state: 'ok',
+        message: 'Forecast endpoint is healthy',
+        points: data.hourly.length,
+        cached: Boolean(payload.cached),
+        fetchedAt: payload.fetchedAt,
+      });
       setError(null);
     } catch (err) {
+      setApiStatus({ state: 'error', message: err.message });
       setError(err.message);
     } finally {
       setLoading(false);
@@ -204,14 +260,17 @@ export default function Home() {
           }}>
             PronoHH 🌊
           </h1>
-          <p style={{ color: '#888', fontSize: '0.95rem' }}>
-            Wind forecast for Rio de la Plata sailors
-            {lastUpdate && (
-              <span style={{ color: '#555', marginLeft: '0.75rem', fontSize: '0.8rem' }}>
-                Updated {lastUpdate.toLocaleTimeString('es-AR')}
-              </span>
-            )}
-          </p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <p style={{ color: '#888', fontSize: '0.95rem', margin: 0 }}>
+              Wind forecast for Rio de la Plata sailors
+              {lastUpdate && (
+                <span style={{ color: '#555', marginLeft: '0.75rem', fontSize: '0.8rem' }}>
+                  Updated {lastUpdate.toLocaleTimeString('es-AR')}
+                </span>
+              )}
+            </p>
+            <ApiStatusPill status={apiStatus} lastUpdate={lastUpdate} onRetry={fetchForecast} />
+          </div>
         </div>
       </header>
 

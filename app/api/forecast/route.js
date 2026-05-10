@@ -1,5 +1,9 @@
 // API route to fetch forecast from OpenWeatherMap
-// Cache for 30 minutes to avoid hammering the API
+// Cache in-memory for 30 minutes to avoid hammering the API.
+// Important: keep the route dynamic/no-store so Vercel does not serve stale forecast JSON.
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const API_KEY = process.env.NEXT_PUBLIC_OWM_KEY;
 const BUENOS_AIRES_LAT = -34.6037;
@@ -9,26 +13,47 @@ const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 let cachedData = null;
 let cacheTime = null;
 
+function jsonNoStore(payload, init = {}) {
+  return Response.json(payload, {
+    ...init,
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      Pragma: 'no-cache',
+      Expires: '0',
+      ...(init.headers || {}),
+    },
+  });
+}
+
 export async function GET(request) {
   try {
     // Check cache
+    if (!API_KEY) {
+      return jsonNoStore(
+        { ok: false, error: 'OpenWeatherMap API key is not configured' },
+        { status: 500 }
+      );
+    }
+
     if (cachedData && cacheTime && Date.now() - cacheTime < CACHE_DURATION) {
-      return Response.json({
+      return jsonNoStore({
+        ok: true,
         data: cachedData,
         cached: true,
         cacheAge: Math.floor((Date.now() - cacheTime) / 1000),
+        fetchedAt: new Date(cacheTime).toISOString(),
       });
     }
 
     // Fetch from OpenWeatherMap
     const url = `https://api.openweathermap.org/data/2.5/forecast?lat=${BUENOS_AIRES_LAT}&lon=${BUENOS_AIRES_LON}&appid=${API_KEY}&units=metric`;
 
-    const response = await fetch(url);
+    const response = await fetch(url, { cache: 'no-store' });
 
     if (!response.ok) {
-      return Response.json(
-        { error: 'Failed to fetch weather data', status: response.status },
-        { status: 500 }
+      return jsonNoStore(
+        { ok: false, error: 'Failed to fetch weather data', upstreamStatus: response.status },
+        { status: 502 }
       );
     }
 
@@ -63,14 +88,16 @@ export async function GET(request) {
     cachedData = result;
     cacheTime = Date.now();
 
-    return Response.json({
+    return jsonNoStore({
+      ok: true,
       data: result,
       cached: false,
+      fetchedAt: new Date(cacheTime).toISOString(),
     });
   } catch (error) {
     console.error('Forecast API error:', error);
-    return Response.json(
-      { error: 'Internal server error', message: error.message },
+    return jsonNoStore(
+      { ok: false, error: 'Internal server error', message: error.message },
       { status: 500 }
     );
   }
