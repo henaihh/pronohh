@@ -52,6 +52,32 @@ function RainBadge({ pct }) {
   );
 }
 
+function getCardinalDirection(degrees) {
+  const directions = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+  return directions[Math.round((((degrees % 360) + 360) % 360) / 45) % 8];
+}
+
+function WindDirection({ degrees, size = 24, showDegrees = true }) {
+  const rounded = Math.round(degrees);
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#00d9ff' }}>
+      <span style={{
+        display: 'inline-block',
+        width: size,
+        height: size,
+        border: '1px solid rgba(0, 217, 255, 0.25)',
+        borderRadius: '50%',
+        textAlign: 'center',
+        lineHeight: `${size - 2}px`,
+        fontSize: `${size * 0.34}px`,
+        color: '#00d9ff',
+        transform: `rotate(${((rounded + 180) % 360)}deg)`,
+      }}>↑</span>
+      <span>{getCardinalDirection(rounded)}{showDegrees ? ` ${rounded}°` : ''}</span>
+    </span>
+  );
+}
+
 function ApiStatusPill({ status, lastUpdate, onRetry }) {
   const isOk = status.state === 'ok';
   const isChecking = status.state === 'checking';
@@ -311,7 +337,9 @@ export default function Home() {
                     <p style={{ color: '#666', fontSize: '0.7rem', margin: 0 }}>kts</p>
                   </div>
                   <div style={{ textAlign: 'center' }}>
-                    <p style={{ color: '#00d9ff', fontSize: '1.4rem', fontWeight: 700, margin: 0 }}>{currentConditions.wind_deg}°</p>
+                    <p style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>
+                      <WindDirection degrees={currentConditions.wind_deg} size={30} />
+                    </p>
                     <p style={{ color: '#666', fontSize: '0.7rem', margin: 0 }}>dir</p>
                   </div>
                   <div style={{ textAlign: 'center' }}>
@@ -510,20 +538,8 @@ export default function Home() {
 
                           {/* Bottom row: direction + rain */}
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                              <span style={{
-                                display: 'inline-block',
-                                width: 24,
-                                height: 24,
-                                border: '1px solid rgba(0, 217, 255, 0.25)',
-                                borderRadius: '50%',
-                                textAlign: 'center',
-                                lineHeight: '22px',
-                                fontSize: '0.8rem',
-                                color: '#00d9ff',
-                                transform: `rotate(${((Math.round(firstHour.wind_deg) + 180) % 360)}deg)`,
-                              }}>↑</span>
-                              <span style={{ color: '#888', fontSize: '0.75rem' }}>{Math.round(firstHour.wind_deg)}°</span>
+                            <div style={{ color: '#888', fontSize: '0.75rem' }}>
+                              <WindDirection degrees={firstHour.wind_deg} />
                             </div>
                             <RainBadge pct={avgRain} />
                           </div>
